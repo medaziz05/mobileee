@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import '../helpers/database_helper.dart';
+import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -12,6 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isPasswordVisible = false;
@@ -23,40 +25,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    final existingUser = await DatabaseHelper.instance.getUserByEmail(_emailController.text);
+    try {
+      final existingUser = await DatabaseHelper.instance.getUserByEmail(_emailController.text);
 
-    if (existingUser != null) {
-      _showError('Cet email est déjà utilisé');
+      if (existingUser != null) {
+        _showError('Cet email est déjà utilisé');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      Map<String, dynamic> newUser = {
+        'name': _nameController.text,
+        'email': _emailController.text,
+        'phoneNumber': _phoneController.text.isNotEmpty ? _phoneController.text : null,
+        'password': _hashPassword(_passwordController.text),
+        'profileImage': null,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      await DatabaseHelper.instance.createUser(newUser);
+
+      print('✅ Utilisateur créé dans la base de données');
+      print('📧 Tentative d\'envoi d\'email à ${_emailController.text}');
+
+      // Envoi de l'email de bienvenue
+      bool emailSent = await ApiService.sendEmail(
+        toEmail: _emailController.text,
+        subject: 'Bienvenue sur ZenLife !',
+        htmlContent: ApiService.getWelcomeEmailTemplate(_nameController.text),
+      );
+
+      // Envoi du SMS de bienvenue si numéro fourni
+      if (_phoneController.text.isNotEmpty) {
+        print('📱 Tentative d\'envoi de SMS à ${_phoneController.text}');
+        bool smsSent = await ApiService.sendSMS(
+          phoneNumber: _phoneController.text,
+          message: 'Bienvenue sur ZenLife ${_nameController.text} ! 🧘 Votre compte a été créé avec succès.',
+        );
+        
+        if (smsSent) {
+          print('✅ SMS envoyé avec succès');
+        }
+      }
+
+      if (emailSent) {
+        _showSuccess('Compte créé avec succès ! Vérifiez votre email.');
+      } else {
+        _showSuccess('Compte créé avec succès !');
+      }
+
+      await Future.delayed(Duration(seconds: 2));
+      Navigator.pop(context);
+
+    } catch (e) {
+      print('❌ Erreur lors de l\'inscription: $e');
+      _showError('Erreur lors de la création du compte');
+    } finally {
       setState(() => _isLoading = false);
-      return;
     }
-
-    Map<String, dynamic> newUser = {
-      'name': _nameController.text,
-      'email': _emailController.text,
-      'password': _hashPassword(_passwordController.text),
-      'profileImage': null,
-      'createdAt': DateTime.now().toIso8601String(),
-    };
-
-    await DatabaseHelper.instance.createUser(newUser);
-
-    _sendWelcomeEmail(_emailController.text, _nameController.text);
-
-    _showSuccess('Compte créé avec succès !');
-    await Future.delayed(Duration(seconds: 1));
-    Navigator.pop(context);
-
-    setState(() => _isLoading = false);
   }
 
   String _hashPassword(String password) {
     return sha256.convert(utf8.encode(password)).toString();
-  }
-
-  void _sendWelcomeEmail(String email, String name) {
-    print('📧 Email de bienvenue envoyé à $email');
-    print('Sujet: Bienvenue $name sur ZenLife !');
   }
 
   void _showError(String message) {
@@ -119,6 +149,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         if (!val.contains('@')) return 'Email invalide';
                         return null;
                       },
+                    ),
+                    SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _phoneController,
+                      label: 'Numéro de téléphone (optionnel)',
+                      icon: Icons.phone,
+                      keyboardType: TextInputType.phone,
+                      validator: null,
                     ),
                     SizedBox(height: 16),
                     _buildTextField(

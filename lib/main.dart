@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'helpers/database_helper.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Charger les variables d'environnement
+  await dotenv.load(fileName: ".env");
+  
+  // Initialiser la base de données
   await DatabaseHelper.instance.database;
+  
   runApp(ZenLifeApp());
 }
 

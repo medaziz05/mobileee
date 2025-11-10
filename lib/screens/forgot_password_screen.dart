@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'dart:math';
 import '../helpers/database_helper.dart';
+import '../services/api_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   @override
@@ -24,34 +25,47 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _isLoading = true);
 
-    final user = await DatabaseHelper.instance.getUserByEmail(_emailController.text);
+    try {
+      final user = await DatabaseHelper.instance.getUserByEmail(_emailController.text);
 
-    if (user == null) {
-      _showError('Email non trouvé');
+      if (user == null) {
+        _showError('Aucun compte trouvé avec cet email');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      String verificationCode = _generateCode();
+      print('🔐 Code généré: $verificationCode pour ${_emailController.text}');
+
+      await DatabaseHelper.instance.createPasswordReset(_emailController.text, verificationCode);
+
+      // Envoi de l'email via API
+      print('📧 Tentative d\'envoi d\'email de réinitialisation...');
+      bool emailSent = await ApiService.sendEmail(
+        toEmail: _emailController.text,
+        subject: 'Réinitialisation de votre mot de passe ZenLife',
+        htmlContent: ApiService.getPasswordResetEmailTemplate(verificationCode),
+      );
+
+      if (emailSent) {
+        setState(() {
+          _codeSent = true;
+          _isLoading = false;
+        });
+        _showSuccess('Code de vérification envoyé à votre email !');
+      } else {
+        _showError('Erreur lors de l\'envoi de l\'email. Veuillez réessayer.');
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('❌ Erreur: $e');
+      _showError('Une erreur est survenue');
       setState(() => _isLoading = false);
-      return;
     }
-
-    String verificationCode = _generateCode();
-
-    await DatabaseHelper.instance.createPasswordReset(_emailController.text, verificationCode);
-
-    _sendResetEmail(_emailController.text, verificationCode);
-
-    setState(() {
-      _codeSent = true;
-      _isLoading = false;
-    });
-
-    _showSuccess('Code de vérification envoyé à votre email !');
   }
 
   String _generateCode() {
     return (100000 + Random().nextInt(900000)).toString();
-  }
-
-  void _sendResetEmail(String email, String code) {
-    print('📧 Code de réinitialisation: $code envoyé à $email');
   }
 
   Future<void> _resetPassword() async {
@@ -91,6 +105,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await DatabaseHelper.instance.updateUser(user['id'], {
         'password': _hashPassword(_newPasswordController.text),
       });
+
+      // Envoi SMS de confirmation si numéro disponible
+      if (user['phoneNumber'] != null && user['phoneNumber'].toString().isNotEmpty) {
+        await ApiService.sendSMS(
+          phoneNumber: user['phoneNumber'],
+          message: 'ZenLife: Votre mot de passe a été réinitialisé avec succès. Si ce n\'était pas vous, contactez-nous immédiatement.',
+        );
+      }
     }
 
     await DatabaseHelper.instance.deletePasswordReset(_emailController.text);

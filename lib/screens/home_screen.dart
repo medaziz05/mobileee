@@ -7,7 +7,7 @@ import 'login_screen.dart';
 class HomeScreen extends StatefulWidget {
   final int userId;
 
-  HomeScreen({required this.userId});
+  const HomeScreen({super.key, required this.userId});
 
   @override
   _HomeScreenState createState() => _HomeScreenState();

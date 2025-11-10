@@ -19,8 +19,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Version incrémentée
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -31,6 +32,7 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        phoneNumber TEXT,
         profileImage TEXT,
         createdAt TEXT NOT NULL
       )
@@ -55,6 +57,13 @@ class DatabaseHelper {
         expiresAt TEXT NOT NULL
       )
     ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Ajout de la colonne phoneNumber si elle n'existe pas
+      await db.execute('ALTER TABLE users ADD COLUMN phoneNumber TEXT');
+    }
   }
 
   // ===== USERS CRUD =====

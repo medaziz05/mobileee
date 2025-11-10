@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-    # Base de données SQLite
+  # Base de données SQLite
   sqflite: ^2.3.0
   path: ^1.8.3
   
@@ -19,6 +19,12 @@ dependencies:
   
   # Gestion des images
   image_picker: ^1.0.7
+  
+  # API HTTP requests
+  http: ^1.1.0
+  
+  # Variables d'environnement
+  flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -27,3 +33,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env

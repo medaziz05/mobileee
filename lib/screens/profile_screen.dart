@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../helpers/database_helper.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? currentUser;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _isEditing = false;
   final ImagePicker _picker = ImagePicker();
 
@@ -35,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         currentUser = user;
         _nameController.text = currentUser!['name'];
         _emailController.text = currentUser!['email'];
+        _phoneController.text = currentUser!['phoneNumber'] ?? '';
       });
     }
   }
@@ -53,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Map<String, dynamic> updatedUser = {
       'name': _nameController.text,
       'email': _emailController.text,
+      'phoneNumber': _phoneController.text.isNotEmpty ? _phoneController.text : null,
       'profileImage': currentUser!['profileImage'],
     };
 
@@ -201,6 +205,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'password': newPasswordHash,
       });
 
+      // Envoi SMS de confirmation si numéro disponible
+      if (currentUser!['phoneNumber'] != null && currentUser!['phoneNumber'].toString().isNotEmpty) {
+        print('📱 Envoi SMS de confirmation changement mot de passe...');
+        bool smsSent = await ApiService.sendSMS(
+          phoneNumber: currentUser!['phoneNumber'],
+          message: 'ZenLife: Votre mot de passe a été modifié avec succès. Si ce n\'était pas vous, contactez-nous immédiatement.',
+        );
+        
+        if (smsSent) {
+          print('✅ SMS de confirmation envoyé');
+        }
+      }
+
       await _loadUserData();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -325,6 +342,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       filled: !_isEditing,
                       fillColor: _isEditing ? null : Colors.grey[100],
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: _phoneController,
+                    enabled: _isEditing,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Numéro de téléphone',
+                      prefixIcon: Icon(Icons.phone),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: !_isEditing,
+                      fillColor: _isEditing ? null : Colors.grey[100],
+                      helperText: 'Pour recevoir les SMS de sécurité',
                     ),
                   ),
                   SizedBox(height: 30),
