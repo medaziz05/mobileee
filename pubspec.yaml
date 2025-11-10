@@ -20,6 +20,10 @@ dependencies:
   
   # Gestion des images
   image_picker: ^1.0.7
+
+  
+  # ✅ AJOUTEZ CETTE LIGNE (Permissions)
+  permission_handler: ^11.0.1
   
   # API HTTP requests
   http: ^1.1.0

@@ -130,65 +130,82 @@ class TestEnvScreen extends StatelessWidget {
     );
   }
 
-  void _testSMS(BuildContext context) async {
-    // Demander le numéro
-    TextEditingController phoneController = TextEditingController();
-    
-    bool? proceed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Test SMS'),
-        content: TextField(
-          controller: phoneController,
-          decoration: InputDecoration(
-            labelText: 'Numéro de téléphone',
-            hintText: '+33612345678',
-          ),
-          keyboardType: TextInputType.phone,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Envoyer'),
-          ),
+  // REMPLACEZ la fonction _testSMS dans lib/test_env.dart par ceci :
+
+void _testSMS(BuildContext context) async {
+  // ⚠️ EN MODE TRIAL : Twilio n'autorise l'envoi qu'aux numéros VÉRIFIÉS
+  const String verifiedNumber = '+21625985364'; // Votre numéro vérifié (image 1)
+  
+  // Afficher un avertissement
+  bool? proceed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('⚠️ Test SMS'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('MODE TRIAL TWILIO DÉTECTÉ', 
+               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+          SizedBox(height: 10),
+          Text('Le SMS sera envoyé à votre numéro vérifié :'),
+          SizedBox(height: 5),
+          Text(verifiedNumber, 
+               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          SizedBox(height: 10),
+          Text('En mode Trial, Twilio n\'envoie qu\'aux numéros vérifiés dans la console.', 
+               style: TextStyle(fontSize: 12, color: Colors.grey[700])),
         ],
       ),
-    );
-
-    if (proceed != true || phoneController.text.isEmpty) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text('Test SMS'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 20),
-            Text('Envoi d\'un SMS de test...'),
-          ],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text('Annuler'),
         ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text('Envoyer le test'),
+        ),
+      ],
+    ),
+  );
+
+  if (proceed != true) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: Text('Test SMS'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 20),
+          Text('Envoi vers $verifiedNumber...'),
+          SizedBox(height: 10),
+          Text('Vérifiez votre téléphone !', 
+               style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
       ),
-    );
+    ),
+  );
 
-    bool success = await ApiService.sendSMS(
-      phoneNumber: phoneController.text,
-      message: 'Test ZenLife - Votre configuration SMS fonctionne !',
-    );
+  bool success = await ApiService.sendSMS(
+    phoneNumber: verifiedNumber,
+    message: 'ZenLife Test - Votre configuration SMS fonctionne ! 🎉',
+  );
 
-    Navigator.pop(context);
+  Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? '✅ SMS envoyé !' : '❌ Échec de l\'envoi'),
-        backgroundColor: success ? Colors.green : Colors.red,
-      ),
-    );
-  }
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(success 
+        ? '✅ SMS envoyé ! Vérifiez votre téléphone.' 
+        : '❌ Échec - Vérifiez vos credentials Twilio'),
+      backgroundColor: success ? Colors.green : Colors.red,
+      duration: Duration(seconds: 5),
+    ),
+  );
+}
 }

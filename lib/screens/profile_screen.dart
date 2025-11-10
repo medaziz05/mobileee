@@ -6,6 +6,7 @@ import 'dart:io';
 import '../helpers/database_helper.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int userId;
@@ -42,15 +43,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+ Future<void> _pickImage() async {
+  try {
+    // 1️⃣ Vérifier et demander la permission
+    PermissionStatus status;
+    
+    // Pour Android 13+ (API 33+)
+    if (await Permission.photos.isRestricted || 
+        await Permission.photos.isDenied) {
+      status = await Permission.photos.request();
+    } 
+    // Pour Android 12 et inférieur
+    else if (await Permission.storage.isRestricted || 
+             await Permission.storage.isDenied) {
+      status = await Permission.storage.request();
+    } else {
+      status = PermissionStatus.granted;
+    }
+
+    print('📸 Permission status: $status');
+
+    // 2️⃣ Si permission refusée
+    if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Permission refusée. Impossible d\'accéder à la galerie.'),
+          backgroundColor: Colors.orange,
+          action: SnackBarAction(
+            label: 'Paramètres',
+            textColor: Colors.white,
+            onPressed: () => openAppSettings(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // 3️⃣ Si permission définitivement refusée
+    if (status.isPermanentlyDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Veuillez activer la permission dans les paramètres.'),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Ouvrir',
+            textColor: Colors.white,
+            onPressed: () => openAppSettings(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // 4️⃣ Permission accordée, ouvrir la galerie
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,  // Limiter la taille pour performances
+      maxHeight: 800,
+      imageQuality: 85, // Compression
+    );
+
     if (image != null) {
+      print('✅ Image sélectionnée: ${image.path}');
+      
       setState(() {
         currentUser!['profileImage'] = image.path;
       });
+      
       await _saveUserData();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Photo de profil mise à jour !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      print('❌ Aucune image sélectionnée');
     }
+  } catch (e) {
+    print('❌ Erreur lors de la sélection d\'image: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Erreur: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
+
 
   Future<void> _saveUserData() async {
     Map<String, dynamic> updatedUser = {
