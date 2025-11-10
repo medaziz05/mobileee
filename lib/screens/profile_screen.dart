@@ -110,7 +110,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final _oldPasswordController = TextEditingController();
     final _newPasswordController = TextEditingController();
     final _confirmPasswordController = TextEditingController();
-
     bool? result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -404,6 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
 
   String _formatDate(String isoDate) {
     DateTime date = DateTime.parse(isoDate);

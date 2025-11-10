@@ -3,6 +3,7 @@ import 'dart:io';
 import '../helpers/database_helper.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
+import 'debug_database_screen.dart'; // À ajuster selon votre structure
 
 class HomeScreen extends StatefulWidget {
   final int userId;
@@ -26,12 +27,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = await DatabaseHelper.instance.getUserById(widget.userId);
     setState(() {
       currentUser = user;
-      });
+    });
   }
 
   Future<void> _logout() async {
     await DatabaseHelper.instance.deleteSession(widget.userId);
-
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -68,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Carte utilisateur
                   Card(
                     elevation: 4,
                     shape: RoundedRectangleBorder(
@@ -114,12 +115,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                  
                   SizedBox(height: 30),
+                  
+                  // Section Modules
                   Text(
                     'Modules disponibles',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 16),
+                  
+                  // Liste des modules
                   _buildModuleCard(
                     'Activités',
                     'Suivez vos activités quotidiennes',
@@ -144,13 +150,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icons.forum,
                     Colors.blue,
                   ),
+                  
+                  // DEBUG BD - Doit apparaître en dernier
+                  _buildModuleCard(
+                    'Debug BD',
+                    'Afficher les infos de la base de données',
+                    Icons.bug_report,
+                    Colors.red,
+                    onTap: () {
+                      print('Debug BD tapped'); // Pour vérifier dans les logs
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => DebugDatabaseScreen()),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildModuleCard(String title, String subtitle, IconData icon, Color color) {
+  Widget _buildModuleCard(String title, String subtitle, IconData icon, Color color, {VoidCallback? onTap}) {
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -171,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         subtitle: Text(subtitle),
         trailing: Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () {
+        onTap: onTap ?? () {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Module $title - Bientôt disponible !')),
           );

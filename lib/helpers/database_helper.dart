@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:io';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -19,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // Version incrémentée
+      version: 2,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -61,8 +62,35 @@ class DatabaseHelper {
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Ajout de la colonne phoneNumber si elle n'existe pas
       await db.execute('ALTER TABLE users ADD COLUMN phoneNumber TEXT');
+    }
+  }
+
+  // ===== MÉTHODE D'EXPORTATION =====
+  static Future<String?> exportDatabase() async {
+    try {
+      final databasesPath = await getDatabasesPath();
+      final dbPath = join(databasesPath, 'zenlife.db');
+      
+      // Vérifier si le fichier existe
+      final dbFile = File(dbPath);
+      if (!await dbFile.exists()) {
+        print('❌ Fichier de base de données non trouvé: $dbPath');
+        return null;
+      }
+
+      // Obtenir le répertoire de documents (utilisation de getApplicationDocumentsDirectory serait mieux)
+      final directory = await getDatabasesPath();
+      final exportPath = join(directory, 'zenlife_export_${DateTime.now().millisecondsSinceEpoch}.db');
+      
+      // Copier le fichier
+      await dbFile.copy(exportPath);
+      
+      print('✅ Base de données exportée vers: $exportPath');
+      return exportPath;
+    } catch (e) {
+      print('❌ Erreur export DB: $e');
+      return null;
     }
   }
 
@@ -170,5 +198,39 @@ class DatabaseHelper {
       where: 'email = ?',
       whereArgs: [email],
     );
+  }
+
+  // ===== MÉTHODES DE DEBUG =====
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    final db = await database;
+    return await db.query('users');
+  }
+
+  Future<List<Map<String, dynamic>>> getAllSessions() async {
+    final db = await database;
+    return await db.query('sessions');
+  }
+
+  Future<List<Map<String, dynamic>>> getAllPasswordResets() async {
+    final db = await database;
+    return await db.query('password_resets');
+  }
+
+  // ===== MÉTHODE POUR OBTENIR LES INFOS DE LA BD =====
+  Future<Map<String, dynamic>> getDatabaseInfo() async {
+    final db = await database;
+    final users = await getAllUsers();
+    final sessions = await getAllSessions();
+    final passwordResets = await getAllPasswordResets();
+
+    return {
+      'path': db.path,
+      'users_count': users.length,
+      'sessions_count': sessions.length,
+      'password_resets_count': passwordResets.length,
+      'users': users,
+      'sessions': sessions,
+      'password_resets': passwordResets,
+    };
   }
 }

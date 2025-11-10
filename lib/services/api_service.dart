@@ -16,10 +16,17 @@ class ApiService {
 
       print('🔍 Debug - Envoi email à: $toEmail');
       print('🔍 Debug - API Key présente: ${apiKey.isNotEmpty}');
+      print('🔍 Debug - API Key (premiers chars): ${apiKey.length > 10 ? apiKey.substring(0, 10) + "..." : "VIDE"}');
       print('🔍 Debug - Sender: $senderEmail');
 
       if (apiKey.isEmpty) {
         print('❌ ERREUR: SENDGRID_API_KEY manquante dans .env');
+        return false;
+      }
+
+      // Vérification du format de la clé
+      if (!apiKey.startsWith('SG.')) {
+        print('❌ ERREUR: Format de clé SendGrid invalide (doit commencer par "SG.")');
         return false;
       }
 
@@ -61,6 +68,11 @@ class ApiService {
         return true;
       } else {
         print('❌ Erreur SendGrid: ${response.body}');
+        if (response.statusCode == 401) {
+          print('⚠️ ERREUR 401: Clé API invalide ou expirée. Générez une nouvelle clé sur SendGrid.');
+        } else if (response.statusCode == 403) {
+          print('⚠️ ERREUR 403: Email expéditeur non vérifié. Vérifiez votre Sender Authentication sur SendGrid.');
+        }
         return false;
       }
     } catch (e) {
@@ -79,7 +91,35 @@ class ApiService {
       final authToken = dotenv.env['TWILIO_AUTH_TOKEN'] ?? '';
       final twilioNumber = dotenv.env['TWILIO_PHONE_NUMBER'] ?? '';
 
-      print('🔍 Debug - Envoi SMS à: $phoneNumber');
+      // CORRECTION : Normalisation spécifique pour votre numéro 25985364
+      String normalizedPhone = phoneNumber.trim();
+      
+      print('🔍 Numéro reçu: "$normalizedPhone"');
+      
+      // Supprimer tous les caractères non numériques
+      normalizedPhone = normalizedPhone.replaceAll(RegExp(r'[^\d]'), '');
+      
+      print('🔍 Après nettoyage: "$normalizedPhone"');
+      
+      // CORRECTION SPÉCIFIQUE POUR VOTRE CAS
+      // Si le numéro est exactement "25985364" (8 chiffres sans indicatif)
+      if (normalizedPhone == '25985364') {
+        normalizedPhone = '+21625985364';
+      }
+      // Si c'est un autre numéro tunisien de 8 chiffres sans indicatif
+      else if (normalizedPhone.length == 8 && !normalizedPhone.startsWith('+')) {
+        normalizedPhone = '+216$normalizedPhone';
+      }
+      // Si c'est un numéro avec 0 au début (ex: 025985364)
+      else if (normalizedPhone.length == 9 && normalizedPhone.startsWith('0')) {
+        normalizedPhone = '+216${normalizedPhone.substring(1)}';
+      }
+      // Si le numéro commence par 216 sans le +
+      else if (normalizedPhone.startsWith('216') && normalizedPhone.length == 11) {
+        normalizedPhone = '+$normalizedPhone';
+      }
+      
+      print('🎯 Numéro final pour Twilio: "$normalizedPhone"');
       print('🔍 Debug - Account SID présent: ${accountSid.isNotEmpty}');
       print('🔍 Debug - From: $twilioNumber');
 
@@ -101,7 +141,7 @@ class ApiService {
         },
         body: {
           'From': twilioNumber,
-          'To': phoneNumber,
+          'To': normalizedPhone,
           'Body': message,
         },
       );
@@ -110,10 +150,16 @@ class ApiService {
       print('📱 Response Body: ${response.body}');
 
       if (response.statusCode == 201) {
-        print('✅ SMS envoyé avec succès à $phoneNumber');
+        print('✅ SMS envoyé avec succès à $normalizedPhone');
         return true;
       } else {
         print('❌ Erreur Twilio: ${response.body}');
+        if (response.statusCode == 401) {
+          print('⚠️ ERREUR 401: Credentials Twilio invalides. Vérifiez Account SID et Auth Token.');
+        } else if (response.statusCode == 400) {
+          final errorData = json.decode(response.body);
+          print('⚠️ ERREUR 400: ${errorData['message']}');
+        }
         return false;
       }
     } catch (e) {
